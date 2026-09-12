@@ -58,11 +58,19 @@ module.exports = async function handler(req, res) {
     'मौसम की जानकारी अभी बहुत बार माँगी गई है। थोड़ी देर बाद कोशिश कीजिए।');
   if (stop) return;
 
-  const key = process.env.OPENWEATHER_API_KEY || '520c40d9ec23d08f1445a7bd44b14f06';
+  /* SIRF environment se. Pehle yahan ek key likhi hui thi (fallback ke
+     roop me). Repo public hai, isliye wo key GitHub par sabko dikh rahi
+     thi — yani wo waise bhi mari hui hai aur badalni hi padegi. Use yahan
+     rakhna sirf ek mara hua secret repo me chhodna hota, aur agli baar
+     nayi key bhi yahin likh di jaati.
+
+     Set karna: Vercel > Project > Settings > Environment Variables >
+     OPENWEATHER_API_KEY. Uske baad ek naya deploy. */
+  const key = process.env.OPENWEATHER_API_KEY;
   if (!key) {
-    /* Key set hi nahi hai. App is jawab ko pehchan kar mausam ka hissa
-       chhupa deti hai — baaki poori app (rog pehchan, salah) chalti
-       rehti hai, kyunki wo waise bhi offline chalti hai. */
+    /* Key set na ho to mausam aur mandi ka hissa chup-chaap chhup jata
+       hai — baaki poori app (rog pehchan, salah) chalti rehti hai,
+       kyunki wo waise bhi offline chalti hai. */
     return res.status(503).json({ error: 'not_configured' });
   }
 

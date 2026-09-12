@@ -104,7 +104,17 @@
    * ------------------------------------------------------------------- */
   const appState = () => (typeof state !== 'undefined') ? state : null;
   const appCrops = () => (typeof CROPS !== 'undefined') ? CROPS : {};
-  const appWeatherKey = () => (typeof WEATHER_API_KEY !== 'undefined' && WEATHER_API_KEY) ? WEATHER_API_KEY : '520c40d9ec23d08f1445a7bd44b14f06';
+  /* KEY YAHAN NAHI HAI — aur nahi honi chahiye.
+   *
+   * Pehle yahan OpenWeather ki key seedhe likhi thi. Yeh file har browser
+   * me jaati hai, yani key kisi bhi visitor ko dikh jaati thi (View Source
+   * ya Network tab), aur repo public hone se GitHub par bhi padi thi.
+   * Koi bhi use apne kaam me laga sakta tha — bill hamara, aur quota
+   * khatam hone par KISAN ko mandi ka bhav milna band.
+   *
+   * Ab jagah ka naam/coordinates api/weather.js se poochte hain; key sirf
+   * server par rehti hai (OPENWEATHER_API_KEY). */
+  const WEATHER_PROXY = 'api/weather';
 
   /** App ke apne helper — agar kisi wajah se na milein to app tootni nahi chahiye. */
   const esc  = (t) => (typeof escapeHtml === 'function' ? escapeHtml(t) : String(t == null ? '' : t));
@@ -195,12 +205,12 @@
 
   /** lat/lon -> { name, state } (OpenWeather ka reverse geocoding, wahi key). */
   async function whichState(lat, lon) {
-    const key = appWeatherKey();
-    if (!key || key === 'PASTE_KEY_HERE') throw new Error('NO_WEATHER_KEY');
-
-    const url = 'https://api.openweathermap.org/geo/1.0/reverse?lat=' + lat +
-                '&lon=' + lon + '&limit=1&appid=' + key;
+    const url = WEATHER_PROXY + '?op=reverse&lat=' + encodeURIComponent(lat) +
+                '&lon=' + encodeURIComponent(lon) + '&limit=1';
     const res = await fetch(url);
+    /* Server par key set na ho to 503 — tab mandi ka hissa chup-chaap
+       chhup jata hai, baaki app chalti rehti hai. */
+    if (res.status === 503) throw new Error('NO_WEATHER_KEY');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const arr = await res.json();
     const hit = Array.isArray(arr) ? arr[0] : null;
@@ -223,7 +233,6 @@
     if (cache[ck]) return cache[ck];                 // pehle se pata hai
     if (cache[ck] === null) return null;             // pehle bhi nahi mila tha
 
-    const key = appWeatherKey();
     const tries = [
       market + ',' + district + ',' + stateName + ',IN',
       market + ',' + stateName + ',IN',
@@ -232,8 +241,7 @@
 
     for (const q of tries) {
       try {
-        const url = 'https://api.openweathermap.org/geo/1.0/direct?q=' +
-                    encodeURIComponent(q) + '&limit=1&appid=' + key;
+        const url = WEATHER_PROXY + '?op=geocode&q=' + encodeURIComponent(q);
         const res = await fetch(url);
         if (!res.ok) continue;
         const arr = await res.json();
@@ -425,7 +433,7 @@
         return { hi: 'लोकेशन नहीं मिल पाई। ऊपर मौसम वाले कार्ड में अपना गाँव/शहर या PIN कोड लिख दीजिए।',
                  en: 'Could not get your location. Set your village/PIN in the weather card above.', icon: 'pin' };
       case 'NO_WEATHER_KEY':
-        return { hi: 'जगह पहचानने के लिए मौसम वाली API key चाहिए (js/script.js में WEATHER_API_KEY)।',
+        return { hi: 'जगह पहचानने की सुविधा अभी सर्वर पर चालू नहीं है।',
                  en: 'The weather API key is needed to resolve your location.', icon: 'key' };
       case 'BAD_KEY':
         return { hi: 'data.gov.in की API key गलत है या अभी चालू नहीं हुई।',
