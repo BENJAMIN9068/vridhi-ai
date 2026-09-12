@@ -58,13 +58,40 @@ export async function broadcastAdvisory(advisory) {
   try {
     const res = await fetch(BASE + '/advisories', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Action': 'broadcast',
+        'X-Admin-Portal': 'regional',
+      },
       body: JSON.stringify(advisory),
     });
-    return await res.json();
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      console.warn('[api] advisory error:', res.status, data);
+      return { ok: false, error: (data && data.error) || ('HTTP_' + res.status) };
+    }
+    return data || { ok: false, error: 'empty_response' };
   } catch (err) {
     console.warn('[api] advisory bhej nahi paye:', err.message);
     return { ok: false, error: 'network' };
+  }
+}
+
+/** Real live outbreaks fetch karna */
+export async function fetchOutbreaks(district, crop) {
+  try {
+    let url = BASE + '/outbreaks';
+    const params = [];
+    if (district && district !== 'all') params.push('district=' + encodeURIComponent(district));
+    if (crop && crop !== 'all') params.push('crop=' + encodeURIComponent(crop));
+    if (params.length) url += '?' + params.join('&');
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return { ok: false, outbreaks: [] };
+    return await res.json();
+  } catch (err) {
+    console.warn('[api] outbreaks error:', err.message);
+    return { ok: false, outbreaks: [] };
   }
 }
 

@@ -20,6 +20,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { WEBSITE_CROPS, getStateData } from '../../data/multiStateAgriData';
+import { fetchOutbreaks } from '../../lib/api';
 
 // Fix Leaflet default icon paths
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -139,18 +140,16 @@ export default function OutbreakMap({
     });
   }, [stateObj, selectedDivision, selectedCrop, selectedSeverity]);
 
+  const [liveOutbreaks, setLiveOutbreaks] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetchOutbreaks(selectedDivision, selectedCrop).then(d => {
+      if (alive && d && d.ok) setLiveOutbreaks(d.outbreaks || []);
+    });
+    return () => { alive = false; };
+  }, [selectedDivision, selectedCrop]);
+
   return (
-    <>
-      {/* Naksha par dikhne wale khet (cadastral polygons) NAMOONA hain —
-          khasra/bhu-abhilekh ki asli GIS parat abhi judi nahi hai. Asli
-          cheez sirf wo cluster hain jo kisano ki jaanchon se bante hain
-          (Epidemic Risk Radar me). Yahan chhupana khatarnak hoga: adhikari
-          in polygons ko asli khet samajh kar team bhej sakta hai. */}
-      <div className="agri-card p-3.5 mb-4 bg-amber-50 border-amber-200 text-xs text-amber-900">
-        <b>नक्शे के खेत (पार्सल) नमूना हैं।</b> ज़िले के भू-अभिलेख/खसरा GIS से
-        अभी जुड़ाव नहीं है। असली आँकड़े किसानों की जाँचों से बने रोग-समूह हैं —
-        वे “Epidemic Risk Radar” में दिखते हैं।
-      </div>
     <div className="flex flex-col bg-white rounded-2xl border border-[#eaecf0] shadow-xs overflow-hidden">
       
       {/* Control Bar: Filters & Satellite Switcher */}
@@ -229,16 +228,18 @@ export default function OutbreakMap({
           </button>
         </div>
 
-        {/* Live Cadastral Info Pills */}
+        {/* Live Outbreak Info Pills */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-lg text-xs font-bold text-green-800">
             <Sprout className="w-3.5 h-3.5 text-green-600" />
-            <span>{filteredFarmPlots.length} Farmland Plots Geofenced</span>
+            <span>{liveOutbreaks.length} Active Outbreak Clusters</span>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg text-xs font-bold text-red-700">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-            <span>{filteredFarmPlots.filter(p => p.diseaseStatus === 'infected').length} Infested Fields</span>
-          </div>
+          {liveOutbreaks.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg text-xs font-bold text-red-700">
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              <span>{liveOutbreaks.filter(p => p.severity === 'critical').length} Critical Clusters</span>
+            </div>
+          )}
         </div>
 
       </div>
@@ -282,51 +283,27 @@ export default function OutbreakMap({
             />
           )}
 
-          {/* 1. Cadastral Farm Parcel Polygons (Actual Farmer Fields Covered Over Satellite) */}
-          {showParcels && filteredFarmPlots.map(plot => {
-            const isDiseased = plot.diseaseStatus === 'infected';
-            const cropObj = WEBSITE_CROPS.find(c => c.id === plot.crop) || WEBSITE_CROPS[0];
-            const fillColor = cropObj.color;
-            const borderColor = isDiseased ? '#dc2626' : '#16a34a';
-
+          {/* Real Live Outbreak Clusters on Map */}
+          {liveOutbreaks.map((cluster, idx) => {
+            const cropObj = WEBSITE_CROPS.find(c => c.id === cluster.crop) || WEBSITE_CROPS[0];
+            const isCritical = cluster.severity === 'critical';
             return (
-              <div key={plot.id}>
-                {/* Field Boundary Polygon */}
-                <Polygon
-                  positions={plot.polygonCoordinates}
-                  pathOptions={{
-                    color: borderColor,
-                    weight: isDiseased ? 3.5 : 2,
-                    fillColor: fillColor,
-                    fillOpacity: isDiseased ? 0.55 : 0.40,
-                    dashArray: isDiseased ? '5, 5' : null
-                  }}
-                  eventHandlers={{
-                    click: () => onSelectPlot && onSelectPlot(plot)
-                  }}
-                >
-                  <LeafletTooltip sticky direction="top">
-                    <div className="text-xs p-1">
-                      <p className="font-bold text-gray-900">{plot.khasraNo} • {plot.farmerName}</p>
-                      <p className="text-[11px] font-semibold text-green-700">{plot.cropName} ({plot.areaAcres} Acres)</p>
-                      <p className={`text-[10px] font-bold mt-0.5 ${isDiseased ? 'text-red-600' : 'text-green-600'}`}>
-                        {isDiseased ? `🚨 Disease: ${plot.detectedDisease} (${plot.aiConfidence}% AI)` : '✅ Healthy Crop Stand'}
-                      </p>
-                    </div>
-                  </LeafletTooltip>
-                </Polygon>
-
-                {/* On-Field Disease Alert Badge (directly at the center of the covered farm plot) */}
-                {plot.centerPoint && (
-                  <Marker
-                    position={plot.centerPoint}
-                    icon={createFieldDiseaseBadgeIcon(plot.detectedDisease, plot.aiConfidence, isDiseased, cropObj.icon)}
-                    eventHandlers={{
-                      click: () => onSelectPlot && onSelectPlot(plot)
-                    }}
-                  />
-                )}
-              </div>
+              <Marker
+                key={idx}
+                position={cluster.coordinates || activeDivObj.center}
+                icon={createFieldDiseaseBadgeIcon(cluster.diseaseHi || cluster.disease, 92, true, cropObj.icon)}
+                eventHandlers={{
+                  click: () => onSelectCluster && onSelectCluster(cluster)
+                }}
+              >
+                <Popup>
+                  <div className="p-2 text-xs">
+                    <p className="font-bold text-gray-900">{cluster.district} • {cluster.diseaseHi || cluster.disease}</p>
+                    <p className="text-gray-600 mt-0.5">{cluster.farmersCount || cluster.scansCount} किसान जाँचें दर्ज</p>
+                    <p className="text-red-600 font-bold mt-1">गंभीरता: {cluster.severity}</p>
+                  </div>
+                </Popup>
+              </Marker>
             );
           })}
         </MapContainer>
@@ -362,6 +339,5 @@ export default function OutbreakMap({
       </div>
 
     </div>
-    </>
   );
 }

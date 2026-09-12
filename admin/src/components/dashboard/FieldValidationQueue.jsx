@@ -13,32 +13,20 @@ import {
   ArrowRight,
   Phone,
   Eye,
-  AlertCircle
 } from 'lucide-react';
-import { FIELD_VERIFICATION_QUEUE } from '../../data/maharashtraAgriData';
 import { fetchLiveScans, updateScanStatus, scanToQueueItem, fetchAdminSession } from '../../lib/api';
 
 export default function FieldValidationQueue({ 
   onOpenBroadcastModal,
   currentLanguage 
 }) {
-  /* Shuru me demo list — par har row par nishan laga hua, taaki UI saaf
-     bata sake ki ye asli kisan nahi hain. Asli jaanch aate hi ye hat jati
-     hai (neeche loadLive me). */
-  const DEMO_QUEUE = FIELD_VERIFICATION_QUEUE.map(d => ({ ...d, isDemo: true }));
-  const [queue, setQueue] = useState(DEMO_QUEUE);
+  const [queue, setQueue] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedItem, setSelectedItem] = useState(DEMO_QUEUE[0]);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
-
-  /* --- LIVE: kisan app se aayi jaanchein ---------------------------------
-   * Demo data waisa hi rehta hai (viva ke liye), uske UPAR live scans aati
-   * hain. API na chale to kuch nahi bigadta — demo list dikhti rehti hai.  */
   const [liveInfo, setLiveInfo] = useState({ count: 0, storage: null, at: null });
 
-  /* Faisla kisne liya — asli session se. Pehle yahan ek gaddha hua adhikari
-     ka naam code me likha tha, jo har faisle par server par chala jata tha.
-     Wo jawabdehi nahi, jawabdehi ka naatak hai. */
+  /* Faisla kisne liya — asli session se. */
   const [admin, setAdmin] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -51,15 +39,15 @@ export default function FieldValidationQueue({
 
   const loadLive = useCallback(async () => {
     const { ok, scans, storage, needsLogin: no401 } = await fetchLiveScans();
-    /* Session khatam ho gaya to chup mat raho. Warna adhikari demo list
-       dekhta rehta hai aur samajhta hai ki aaj koi jaanch aayi hi nahi. */
     setNeedsLogin(Boolean(no401));
     if (!ok) return;
     const live = scans.map(scanToQueueItem);
-    /* Asli jaanchein aa gayi to demo rows hata do. Ek hi list me asli aur
-       nakli kisan mile hue dikhna sabse bura haal hai — adhikari kisi
-       banaye hue "kisan" ke liye gaadi bhej sakta hai. */
-    setQueue(live.length ? live : DEMO_QUEUE);
+    setQueue(live);
+    setSelectedItem(prev => {
+      if (!prev && live.length > 0) return live[0];
+      if (prev && !live.some(item => item.id === prev.id)) return live[0] || null;
+      return prev;
+    });
     setLiveInfo({ count: live.length, storage, at: new Date() });
   }, []);
 
@@ -131,24 +119,13 @@ export default function FieldValidationQueue({
     return true;
   });
 
-  const showingDemo = queue.some(q => q.isDemo);
-
   return (
     <div className="space-y-4">
 
       {/* Jab list me asli jaanch nahi hai to chhupao mat — saaf bata do */}
       {needsLogin && (
         <div className="agri-card p-3.5 bg-amber-50 border-amber-200 text-xs font-bold text-amber-900">
-          सत्र समाप्त हो गया है — नीचे जो दिख रहा है वह असली जाँचें नहीं हैं।
-          किसानों की जाँचें देखने के लिए दोबारा लॉगिन कीजिए।
-        </div>
-      )}
-
-      {showingDemo && !needsLogin && (
-        <div className="agri-card p-3.5 bg-amber-50 border-amber-200 text-xs text-amber-900">
-          <b>यह नमूना (demo) सूची है।</b> किसानों की ऐप से अभी कोई जाँच नहीं आई है।
-          जैसे ही असली जाँच आएगी, यह सूची अपने आप उससे बदल जाएगी — नमूना डेटा हट जाएगा।
-          इन नामों पर कोई कार्रवाई न करें, ये असली किसान नहीं हैं।
+          सत्र समाप्त हो गया है। किसानों की लाइव जाँचें देखने के लिए एडमिन पोर्टल पर लॉगिन कीजिए।
         </div>
       )}
 
@@ -168,7 +145,7 @@ export default function FieldValidationQueue({
             <p className="text-xs text-gray-500 mt-1">
               {currentLanguage === 'hi' 
                 ? 'वृद्धि AI मोबाइल ऐप से किसानों द्वारा भेजे गए पत्ती स्कैन, एआई निदान व विशेषज्ञ सत्यापन' 
-                : 'Real-time farmer submissions from Vridhi AI App awaiting agronomist review across UP districts'}
+                : 'Real-time farmer submissions from Vridhi AI App awaiting agronomist review'}
             </p>
           </div>
 
@@ -192,10 +169,23 @@ export default function FieldValidationQueue({
         
         {/* Left Column: Submission List (5 cols) */}
         <div className="lg:col-span-5 space-y-2.5">
-          {filteredQueue.map(item => {
-            const isSelected = selectedItem?.id === item.id;
+          {filteredQueue.length === 0 ? (
+            <div className="agri-card p-8 text-center bg-white border border-gray-200">
+              <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-2" />
+              <p className="text-xs font-bold text-gray-800">
+                {currentLanguage === 'hi' ? 'कोई लंबित किसान जाँच नहीं है' : 'No Pending Submissions'}
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1 max-w-xs mx-auto">
+                {currentLanguage === 'hi'
+                  ? 'किसान जब वृद्धि AI ऐप से पत्ती की जाँच भेजेंगे, वे सत्यापन के लिए यहाँ स्वतः दिखाई देंगी।'
+                  : 'Live farmer leaf diagnostic submissions from the app will appear here automatically for agronomist ground-truthing.'}
+              </p>
+            </div>
+          ) : (
+            filteredQueue.map(item => {
+              const isSelected = selectedItem?.id === item.id;
 
-            return (
+              return (
               <div
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -242,8 +232,9 @@ export default function FieldValidationQueue({
                 </div>
               </div>
             );
-          })}
-        </div>
+          })
+        )}
+      </div>
 
         {/* Right Column: Deep Diagnostic Inspector (7 cols) */}
         {selectedItem ? (
@@ -376,7 +367,9 @@ export default function FieldValidationQueue({
         ) : (
           <div className="lg:col-span-7 agri-card p-12 flex flex-col items-center justify-center text-center text-gray-400">
             <CheckCircle2 className="w-12 h-12 stroke-1 text-gray-300 mb-2" />
-            <p className="text-sm font-semibold">Select a farmer submission from the queue</p>
+            <p className="text-sm font-semibold text-gray-500">
+              {currentLanguage === 'hi' ? 'समीक्षा के लिए बाईं ओर से जाँच चुनें' : 'Select a farmer submission from the queue to inspect diagnostics'}
+            </p>
           </div>
         )}
 

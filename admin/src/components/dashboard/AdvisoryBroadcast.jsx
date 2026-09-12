@@ -99,22 +99,27 @@ export default function AdvisoryBroadcast({ initialData, currentLanguage }) {
   return (
     <div className="space-y-4">
       
-      {/* Success notification */}
+      {/* Success/Error notification */}
       {broadcastDone && (
-        <div className="p-4 rounded-xl bg-green-900 text-white flex items-center justify-between border border-green-700 shadow-xl animate-in fade-in">
+        <div className={`p-4 rounded-xl text-white flex items-center justify-between border shadow-xl animate-in fade-in ${
+          sendResult && sendResult.ok ? 'bg-green-900 border-green-700' : 'bg-red-900 border-red-700'
+        }`}>
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-green-400 shrink-0" />
+            {sendResult && sendResult.ok ? (
+              <CheckCircle2 className="w-6 h-6 text-green-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
+            )}
             <div>
               <p className="text-sm font-bold">
                 {sendResult && sendResult.ok
                   ? 'Advisory किसान ऐप पर live भेज दी गई'
-                  : 'Advisory भेजी गई — पर किसान ऐप तक नहीं पहुँची'}
+                  : 'Advisory किसान ऐप तक नहीं पहुँची'}
               </p>
-              <p className="text-xs text-green-200">
+              <p className="text-xs text-gray-200">
                 {sendResult && sendResult.ok
-                  ? sendResult.id + ' — ' + selectedTemplate.targetTalukas.join(', ') +
-                    ' के किसानों की ऐप में यह चेतावनी ऊपर दिखेगी।'
-                  : 'सर्वर तक नहीं पहुँच पाई (API बंद या नेटवर्क नहीं)। दोबारा कोशिश करें।'}
+                  ? (sendResult.id || 'ADV') + ' — सभी किसानों की ऐप में यह चेतावनी लाइव दिखेगी।'
+                  : ((sendResult && sendResult.error) ? `त्रुटि (${sendResult.error})। दोबारा कोशिश करें।` : 'सर्वर तक नहीं पहुँच पाई (API बंद या नेटवर्क नहीं)। दोबारा कोशिश करें।')}
               </p>
             </div>
           </div>
