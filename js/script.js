@@ -10981,13 +10981,17 @@ function markAdvisorySeen(id) {
 }
 
 async function fetchAdvisories() {
-  if (!navigator.onLine || !state.cropId) return;
+  if (!navigator.onLine) return;
 
   try {
-    /* Kisan ki chuni hui bhasha bhi bhej dete hain — server wahin anuvaad
-       karke bhejta hai. Anuvaad na ho paye to asli Hindi aata hai. */
+    /* Auto request notification permission if not asked yet */
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { Notification.requestPermission(); } catch (_) {}
+    }
+
+    const cropParam = state.cropId || 'all';
     const lang = (window.kmLang && window.kmLang.current) ? window.kmLang.current().code : '';
-    const url = CONFIG.REPORT.ADVISORIES + '?crop=' + encodeURIComponent(state.cropId) +
+    const url = CONFIG.REPORT.ADVISORIES + '?crop=' + encodeURIComponent(cropParam) +
                 (lang ? '&lang=' + encodeURIComponent(lang) : '');
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return;
@@ -11007,6 +11011,18 @@ async function fetchAdvisories() {
   } catch (err) {
     console.warn('[advisory] nahi mili:', err.message);
   }
+}
+
+/* Background live polling without needing manual page refresh */
+if (typeof window !== 'undefined') {
+  // Check live advisories every 10 seconds in background
+  setInterval(fetchAdvisories, 10000);
+
+  // Instantly fetch when internet comes back online
+  window.addEventListener('online', () => {
+    console.info('[network] Internet back online — checking live advisories immediately...');
+    fetchAdvisories();
+  });
 }
 
 /* ---------------------------------------------------------------------------

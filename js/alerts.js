@@ -39,19 +39,29 @@
   const PREF_KEY  = 'km.alerts.v1';
   const SHOWN_KEY = 'km.alerts.shown.v1';   // dobara wahi ghanti na baje
 
-  /* Kampan ka namoona — lamba aur toota hua, taaki phone ki normal "tring"
-     se alag lage aur jeb me pehchana jaye. [kampan, chup, kampan, ...] */
+  /* Kampan ka namoona — at least 5 seconds [800ms buzz, 200ms pause x 5 = 5000ms] */
   const BUZZ = {
-    critical: [400, 120, 400, 120, 400, 120, 700],
-    warning:  [300, 150, 300, 150, 500],
-    info:     [200, 120, 200]
+    critical: [800, 200, 800, 200, 800, 200, 800, 200, 800],
+    warning:  [800, 200, 800, 200, 800, 200, 800, 200, 800],
+    info:     [600, 200, 600, 200, 600, 200, 600, 200, 600]
   };
 
-  /* Ghanti ke sur (Hz) aur har sur ka samay (ms). */
+  /* Ghanti ke sur (Hz) aur har sur ka samay (ms) — Poore 3 second tak tez ghanti. */
   const RING = {
-    critical: [[880, 260], [1320, 260], [880, 260], [1320, 480]],
-    warning:  [[880, 220], [1320, 380]],
-    info:     [[880, 200]]
+    critical: [
+      [880, 220], [1320, 220], [1760, 220], [880, 220],
+      [1320, 220], [1760, 220], [880, 220], [1320, 220],
+      [1760, 220], [880, 220], [1320, 220], [1760, 220]
+    ],
+    warning: [
+      [880, 220], [1320, 220], [1760, 220], [880, 220],
+      [1320, 220], [1760, 220], [880, 220], [1320, 220],
+      [1760, 220], [880, 220], [1320, 220], [1760, 220]
+    ],
+    info: [
+      [880, 250], [1320, 250], [880, 250], [1320, 250],
+      [880, 250], [1320, 250], [880, 250], [1320, 250]
+    ]
   };
 
   function prefs() {
@@ -105,10 +115,10 @@
       osc.type = 'square';
       osc.frequency.setValueAtTime(hz, at);
 
-      /* Bina fade ke "click" ki awaaz aati hai, isliye halka fade. */
+      /* Bina fade ke "click" ki awaaz aati hai, isliye halka fade (LOUD volume 0.85). */
       gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(0.32, at + 0.012);
-      gain.gain.setValueAtTime(0.32, at + dur - 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.85, at + 0.012);
+      gain.gain.setValueAtTime(0.85, at + dur - 0.03);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
 
       osc.connect(gain).connect(ac.destination);

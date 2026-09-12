@@ -291,10 +291,56 @@ self.addEventListener('fetch', (event) => {
  * ======================================================================== */
 
 const BUZZ = {
-  critical: [400, 120, 400, 120, 400, 120, 700],
-  warning:  [300, 150, 300, 150, 500],
-  info:     [200, 120, 200],
+  critical: [800, 200, 800, 200, 800, 200, 800, 200, 800],
+  warning:  [800, 200, 800, 200, 800, 200, 800, 200, 800],
+  info:     [600, 200, 600, 200, 600, 200, 600, 200, 600],
 };
+
+/* Background advisory polling — tab/app closed ho tab bhi push notification pop hoga */
+const seenAdvisoriesSW = new Set();
+
+async function checkBackgroundAdvisories() {
+  try {
+    const res = await fetch('/api/advisories?crop=all', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !data.ok || !Array.isArray(data.advisories)) return;
+
+    for (const a of data.advisories) {
+      const id = String(a.id || (a.title || '') + (a.createdAt || ''));
+      if (!id || seenAdvisoriesSW.has(id)) continue;
+      seenAdvisoriesSW.add(id);
+
+      const severity = a.severity === 'critical' ? 'critical'
+                     : a.severity === 'warning'  ? 'warning' : 'info';
+      const title = a.title || a.titleHi || '🚨 कृषि विभाग की चेतावनी';
+
+      await self.registration.showNotification(title, {
+        body: String(a.message || a.messageHi || '').slice(0, 180),
+        icon: './assets/icon-192.png',
+        badge: './assets/icon-192.png',
+        tag: 'km-advisory-' + id,
+        vibrate: BUZZ[severity],
+        requireInteraction: true,
+        renotify: true,
+        data: { url: './app', id: id },
+      });
+
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      clientList.forEach((c) => c.postMessage({ type: 'km:advisory', advisory: a }));
+    }
+  } catch (_) {}
+}
+
+setInterval(() => {
+  checkBackgroundAdvisories();
+}, 15000);
+
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'check-advisories') {
+    event.waitUntil(checkBackgroundAdvisories());
+  }
+});
 
 self.addEventListener('push', (event) => {
   let a = {};
@@ -302,7 +348,7 @@ self.addEventListener('push', (event) => {
 
   const severity = a.severity === 'critical' ? 'critical'
                  : a.severity === 'warning'  ? 'warning' : 'info';
-  const title = a.title || a.titleHi || 'कृषि विभाग की चेतावनी';
+  const title = a.title || a.titleHi || '🚨 कृषि विभाग की चेतावनी';
 
   event.waitUntil((async () => {
     await self.registration.showNotification(title, {
@@ -311,7 +357,7 @@ self.addEventListener('push', (event) => {
       badge: './assets/icon-192.png',
       tag: 'km-advisory-' + (a.id || ''),
       vibrate: BUZZ[severity],
-      requireInteraction: severity === 'critical',
+      requireInteraction: true,
       renotify: true,
       data: { url: './app', id: a.id || '' },
     });
