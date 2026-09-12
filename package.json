@@ -4,6 +4,7 @@
   "description": "Vridhi AI - Offline-first, multi-crop AI Farming Assistant for Indian Farmers.",
   "main": "sw.js",
   "scripts": {
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "bash scripts/build-netlify.sh",
     "build:admin": "cd admin && npm install && npx vite build"
