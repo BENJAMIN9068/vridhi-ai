@@ -137,7 +137,25 @@
           <span class="form-group__error">Passwords do not match</span>
         </div>
 
+        <!-- Generate Password Widget -->
+        <div class="pwd-gen-box" id="pwd-gen-box">
+          <button type="button" class="pwd-gen-btn" id="gen-pwd-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Generate Password
+          </button>
+          <div class="pwd-gen-display" id="pwd-gen-display" style="display:none;">
+            <code class="pwd-gen-code" id="gen-pwd-code"></code>
+            <button type="button" class="pwd-gen-copy-btn" id="copy-pwd-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+          <div class="pwd-gen-tip" id="pwd-gen-tip" style="display:none;"></div>
+        </div>
+
+
         <!-- Terms Checkbox -->
+
         <div class="auth-checkbox">
           <input type="checkbox" id="terms-agree" required>
           <label for="terms-agree">I agree to the <a href="terms.html">Terms of Use</a> and <a href="privacy.html">Privacy Policy</a></label>
@@ -171,10 +189,12 @@
     </div>
   </main>
 
+  <script src="js/i18n.js"></script>
   <script src="js/landing.js"></script>
-<script src="js/offline-agriculture.js?v=1"></script>
-<script src="js/auth.js?v=5"></script>
-<script src="js/landing-tour.js?v=1"></script>
+  <script src="js/offline-agriculture.js?v=1"></script>
+  <script src="js/auth.js?v=5"></script>
+  <script src="js/auth-voice.js"></script>
+  <script src="js/landing-tour.js?v=1"></script>
 
 </body>
 </html>

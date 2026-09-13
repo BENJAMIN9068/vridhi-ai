@@ -445,6 +445,27 @@
     return n ? hello + ' ' + honorific(n) : hello;
   }
 
+  /** Vriddhi ka pehla parichay — "Namashkar, mera naam Vriddhi hai..."
+   *  Chuni hui bhasha me, i18n key 'voice.vriddhi_intro' se. */
+  function vriddhiIntro() {
+    let intro = 'नमस्कार, मेरा नाम वृद्धि है। मैं आपकी क्या सहायता कर सकती हूँ?';
+    if (window.kmI18n) {
+      const v = window.kmI18n.t('voice.vriddhi_intro');
+      if (v && v !== 'voice.vriddhi_intro') intro = v;
+    }
+    const n = farmerFirstName();
+    if (n) {
+      /* Naam pata ho to "Namashkar Ramesh ji, mera naam Vriddhi hai..." */
+      let hello = 'नमस्कार';
+      if (window.kmI18n) {
+        const h = window.kmI18n.t('voice.hello');
+        if (h && h !== 'voice.hello') hello = h;
+      }
+      return hello + ' ' + honorific(n) + ', ' + intro;
+    }
+    return intro;
+  }
+
   class KMVoice {
     constructor() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -551,11 +572,18 @@
     toggle() { this.listening ? this.stop() : this.start(); }
 
     start() {
-      /* Pehli baar mic dabate hi naam se namaste — kisan ko lagta hai ki
-         app use pehchanti hai. Baar-baar nahi, sirf ek baar per session. */
+      /* Pehli baar mic dabate hi Vriddhi apna parichay deti hai — kisan ko
+         lagta hai ki app use jaanti hai. Baar-baar nahi, sirf ek baar per session. */
       if (!this._greeted) {
         this._greeted = true;
-        this._cap({ heard: greeting(), action: 'बोलिए…', kind: 'listening', sticky: true });
+        const introText = vriddhiIntro();
+        /* Bolkar bhi sunao — Siri jaisa anubhav */
+        say(introText);
+        this._watchSpeaking();
+        this._cap({ heard: introText, action: 'वृद्धि AI · बोलिए…', kind: 'listening', sticky: true });
+        /* Pehli baar sirf parichay — mic BAAD me chalega jab kisan
+           dobara dabaye, taaki Vriddhi apni hi awaaz na sun le. */
+        return;
       }
 
       /* ================================================================
@@ -833,7 +861,7 @@
         if (answer && onlineAnswer) {
           const respond = (text, stale) => this._respond(text, {
             heard: '“' + raw + '”',
-            action: (!isOnline ? 'ऑफ़लाइन कृषि सहायक' : 'कृषि AI सहायक'),
+            action: (!isOnline ? 'ऑफ़लाइन वृद्धि AI' : 'वृद्धि AI'),
             kind: 'ok',
             note: (!isOnline ? 'इंटरनेट कनेक्टेड नहीं है — ऑफ़लाइन जानकारी दी गई है।' : null),
             hold: 10000

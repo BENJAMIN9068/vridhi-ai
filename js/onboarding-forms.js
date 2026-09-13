@@ -92,12 +92,16 @@
     rec.lang = O.lang();
     rec.interimResults = false;
     rec.maxAlternatives = 3;
+    let gotResult = false;
     rec.onresult = (e) => {
       const r = e.results && e.results[0];
       const txt = r && r[0] && r[0].transcript;
-      if (txt) onText(String(txt).trim());
+      if (txt) { gotResult = true; onText(String(txt).trim()); }
     };
     rec.onerror = (e) => { if (onFail) onFail((e && e.error) || 'error'); };
+    /* Agar recognition khatam ho gayi lekin koi result nahi aaya (chup raha
+       kisan ya timeout), to onFail bulao — warna mic button is-live atka rehta. */
+    rec.onend = () => { if (!gotResult && onFail) onFail('no-speech'); };
     try { rec.start(); } catch (_) { if (onFail) onFail('start'); }
     return rec;
   }

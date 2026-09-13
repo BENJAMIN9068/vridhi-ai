@@ -95,10 +95,20 @@
       const u = new SpeechSynthesisUtterance(text);
       u.lang = (typeof window.kmSpeechLang === 'function' && window.kmSpeechLang()) || lang();
       u.rate = 0.92;
-      if (done) { u.onend = done; u.onerror = done; }
+      /* Guard: done sirf EK BAAR fire ho — pehle onend ya setTimeout,
+         jo bhi pehle aaye. Bina guard ke dono fire hote the aur
+         listenOnce() do baar call ho jaata tha — voice input ki
+         galti ki asli wajah yahi thi. */
+      let fired = false;
+      const once = function () { if (fired) return; fired = true; done(); };
+      if (done) {
+        u.onend = once;
+        u.onerror = once;
+      }
       window.speechSynthesis.speak(u);
-      /* Kuch browser onend nahi bhejte. Peechhe se ek chhota pehra. */
-      if (done) setTimeout(() => { try { done(); } catch (_) {} }, Math.min(20000, 2500 + text.length * 70));
+      /* Kuch browser onend nahi bhejte. Peechhe se ek chhota pehra.
+         Wahi `once` guard — dobara call nahi hoga. */
+      if (done) setTimeout(once, Math.min(20000, 2500 + text.length * 70));
     } catch (_) { if (done) done(); }
   }
 
@@ -268,12 +278,16 @@
     O.say(body);
     card.querySelector('#kmobRepeat').addEventListener('click', () => O.say(body));
     card.querySelector('#kmobNext').addEventListener('click', () => {
-      O.hush(); O.markDone('intro'); run();
+      O.hush(); O.markDone('intro'); O.close();
+      /* 10 seconds delay after intro before auth modal appears, or instantly on START button click */
+      if (window._authTimeout) clearTimeout(window._authTimeout);
+      window._authTimeout = setTimeout(stepAuth, 10000);
     });
   }
 
   /* --------------------------------------------------------- 3. khata */
   function stepAuth() {
+    if (window._authTimeout) { clearTimeout(window._authTimeout); window._authTimeout = null; }
     const q = O.t('ob.authAsk', 'नया खाता बनाना है या पहले से खाता है?');
     const card = O.shell(
       '<h2 class="kmob__h">' + O.esc(q) + '</h2>' +
@@ -318,7 +332,11 @@
       case 'mic':   return stepMic();
       case 'lang':  return stepLang();
       case 'intro': return stepIntro();
-      case 'auth':  return stepAuth();
+      case 'auth':  
+        /* 10 second delay for auth modal unless triggered by button */
+        if (window._authTimeout) clearTimeout(window._authTimeout);
+        window._authTimeout = setTimeout(stepAuth, 10000);
+        return;
       default:      return O.close();   // aage ke kadam app ke andar hote hain
     }
   }
@@ -326,26 +344,30 @@
   O.run = run;
   O.stepAuth = stepAuth;
 
-  /* Landing page par 'Get Started' / 'शुरू करें' बटन दबाने पर
-     khata chunne wala popup (stepAuth) dikhana */
+  /* Landing page par 'Get Started' / 'शुरू करें' / START बटन दबाने पर
+     khata chunne wala popup (stepAuth) तुरंत दिखाना */
   function wireCtaButtons() {
     if (/\/app(?:\.html)?$/.test(location.pathname)) return;
-    const ctas = document.querySelectorAll('a[data-ll="cta.start"], a[data-ll="cta.free"], a[href="/login"]');
+    const ctas = document.querySelectorAll('a[data-ll="cta.start"], a[data-ll="cta.free"], a[href="/login"], .hero__btn, button[data-start], a[href*="app"]');
     ctas.forEach(btn => {
       btn.addEventListener('click', (e) => {
+        if (btn.getAttribute('href') === '/login' || btn.getAttribute('href') === '/signup') return;
         e.preventDefault();
         stepAuth();
       });
     });
   }
 
-  /* Landing par apne aap shuru — par sirf tab jab yeh kisan naya ho.
-     'auth' kadam apne aap screen par beech me nahi aayega — kisan pehle
-     landing page aaram se dekhega, aur jab 'Get Started' / shuru karega tabhi aayega. */
+  /* Landing par 10 second delay ke baad ya CTA button par aayega */
   function autostart() {
     wireCtaButtons();
     if (O.finished()) return;
-    if (['auth', 'form1', 'perms', 'form2', 'models'].indexOf(O.current()) >= 0) return;
+    if (['form1', 'perms', 'form2', 'models'].indexOf(O.current()) >= 0) return;
+    if (O.current() === 'auth') {
+      if (window._authTimeout) clearTimeout(window._authTimeout);
+      window._authTimeout = setTimeout(stepAuth, 10000);
+      return;
+    }
     setTimeout(run, 1200);
   }
 
